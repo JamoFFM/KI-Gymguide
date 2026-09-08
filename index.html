@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#081a20">
+  <meta name="description" content="Offline-Trainingsplaner für das Fitnessstudio mit Mobility, Alternativübungen und lokalen Schmerz-Rückmeldungen.">
+  <title>Formwerk – Dein Training</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f7f5;
+      --muted: #a6b6b5;
+      --canvas: #07171d;
+      --panel: #10262c;
+      --panel-2: #163139;
+      --line: #29454c;
+      --accent: #b9f54a;
+      --accent-ink: #142200;
+      --teal: #55d9c4;
+      --danger: #ff786d;
+      --warning: #ffd166;
+      --shadow: 0 18px 60px rgba(0, 0, 0, .28);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 90% -10%, rgba(85, 217, 196, .16), transparent 36rem),
+        var(--canvas);
+      color: var(--ink);
+      font: 16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input, textarea { font: inherit; }
+    button { touch-action: manipulation; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 3px solid rgba(185, 245, 74, .55);
+      outline-offset: 2px;
+    }
+    [hidden] { display: none !important; }
+
+    .shell { width: min(100%, 760px); margin: 0 auto; padding: 18px 16px 48px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; min-height: 60px; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 850; letter-spacing: -.02em; }
+    .brand-mark {
+      display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;
+      background: var(--accent); color: var(--accent-ink); font-size: 15px; transform: rotate(-4deg);
+    }
+    .local-pill { color: var(--teal); background: rgba(85, 217, 196, .1); padding: 6px 10px; border-radius: 999px; font-size: .78rem; font-weight: 750; }
+    .screen { animation: rise .28s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; scroll-behavior: auto !important; } }
+
+    .eyebrow { margin: 28px 0 8px; color: var(--teal); font-size: .76rem; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 620px; margin-bottom: 12px; font-size: clamp(2.25rem, 8vw, 4.6rem); line-height: .98; letter-spacing: -.065em; }
+    h2 { margin-bottom: 8px; font-size: clamp(1.65rem, 6vw, 2.6rem); line-height: 1.08; letter-spacing: -.045em; }
+    h3 { margin-bottom: 8px; font-size: 1.1rem; }
+    .lede { max-width: 590px; margin-bottom: 26px; color: var(--muted); font-size: 1.03rem; }
+    .section-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 30px 0 12px; }
+    .section-label h3 { margin: 0; }
+    .section-label span { color: var(--muted); font-size: .83rem; }
+
+    .panel { padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(16, 38, 44, .92); box-shadow: var(--shadow); }
+    .subpanel { padding: 14px; border-radius: 16px; background: var(--panel-2); }
+    .chip-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+    .chip, .choice {
+      min-height: 50px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel-2); color: var(--ink);
+      cursor: pointer; font-weight: 720; transition: .16s ease;
+    }
+    .chip:hover, .choice:hover { border-color: #507079; transform: translateY(-1px); }
+    .chip[aria-pressed="true"], .choice[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+    .choice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .duration-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+    .duration-grid .choice { min-height: 46px; }
+    .tiny-note { margin: 10px 0 0; color: var(--muted); font-size: .84rem; }
+    .toggle-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    label.field { display: block; margin-top: 16px; color: var(--muted); font-size: .88rem; font-weight: 700; }
+    textarea {
+      width: 100%; min-height: 96px; resize: vertical; margin-top: 7px; padding: 13px 14px; border: 1px solid var(--line);
+      border-radius: 14px; background: #0a2026; color: var(--ink);
+    }
+    .region-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .region-grid .chip { min-height: 39px; padding: 7px 12px; font-size: .88rem; }
+    .injury-fields { margin-top: 12px; padding-top: 4px; }
+    .alert { margin-top: 14px; padding: 14px; border: 1px solid rgba(255, 120, 109, .45); border-radius: 14px; background: rgba(255, 120, 109, .1); color: #ffd7d3; }
+    .privacy-note { display: flex; gap: 9px; margin: 16px 2px 0; color: var(--muted); font-size: .83rem; }
+
+    .actions { display: flex; gap: 10px; margin-top: 22px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 12px 18px;
+      border: 1px solid transparent; border-radius: 15px; cursor: pointer; font-weight: 820; text-decoration: none;
+    }
+    .btn-primary { flex: 1; background: var(--accent); color: var(--accent-ink); }
+    .btn-primary:hover { background: #cbff6b; }
+    .btn-secondary { background: var(--panel-2); border-color: var(--line); color: var(--ink); }
+    .btn-ghost { min-height: 42px; padding: 8px 10px; background: transparent; color: var(--muted); border-color: transparent; }
+    .btn-danger { background: rgba(255, 120, 109, .14); border-color: rgba(255, 120, 109, .4); color: #ffaaa2; }
+    .btn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+    .back { margin: 16px 0 12px -8px; }
+
+    .summary-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin: 20px 0; }
+    .metric { padding: 14px 10px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); text-align: center; }
+    .metric strong { display: block; font-size: 1.2rem; }
+    .metric span { color: var(--muted); font-size: .73rem; }
+    .plan-block { margin-top: 14px; padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+    .plan-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .plan-head h3 { margin: 0; }
+    .tag { padding: 5px 9px; border-radius: 999px; background: rgba(185, 245, 74, .12); color: var(--accent); font-size: .76rem; font-weight: 800; }
+    .plan-list { list-style: none; padding: 0; margin: 14px 0 0; }
+    .plan-list li { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+    .plan-list li:first-child { border-top: 0; }
+    .step-no { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 10px; background: var(--panel-2); color: var(--teal); font-weight: 850; }
+    .plan-list strong, .plan-list small { display: block; }
+    .plan-list small { color: var(--muted); }
+    .plan-list > li > small { text-align: right; }
+
+    .session-head { position: sticky; top: 0; z-index: 5; margin: 0 -16px; padding: 12px 16px 14px; background: rgba(7, 23, 29, .9); backdrop-filter: blur(14px); }
+    .session-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--muted); font-size: .84rem; }
+    .progress-track { height: 7px; margin-top: 9px; overflow: hidden; border-radius: 99px; background: var(--panel-2); }
+    .progress-fill { height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width .25s ease; }
+    .exercise-visual {
+      display: grid; align-content: end; min-height: 190px; margin: 14px 0 20px; padding: 20px; overflow: hidden;
+      border: 1px solid var(--line); border-radius: 28px; background:
+        linear-gradient(145deg, transparent 45%, rgba(185, 245, 74, .12)),
+        repeating-linear-gradient(115deg, rgba(255,255,255,.03) 0 1px, transparent 1px 22px), var(--panel);
+    }
+    .visual-code { color: var(--accent); font-size: clamp(3.3rem, 16vw, 6.5rem); line-height: .8; font-weight: 950; letter-spacing: -.08em; opacity: .92; }
+    .visual-label { margin-top: 12px; color: var(--muted); font-size: .78rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+    .muscles { color: var(--teal); font-weight: 720; }
+    .prescription { display: flex; gap: 10px; margin: 18px 0; }
+    .prescription > div { flex: 1; padding: 13px; border-radius: 15px; background: var(--panel-2); }
+    .prescription span { display: block; color: var(--muted); font-size: .76rem; }
+    .prescription strong { font-size: 1.05rem; }
+    .instruction { margin-top: 16px; }
+    .instruction h3 { margin-bottom: 5px; font-size: .9rem; color: var(--muted); }
+    .instruction p { margin-bottom: 0; }
+    .training-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 20px; }
+    .training-actions .btn { min-height: 62px; padding: 8px; font-size: .78rem; line-height: 1.2; }
+    .done-btn { width: 100%; margin-top: 14px; }
+
+    dialog { width: min(calc(100% - 24px), 520px); padding: 0; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); color: var(--ink); box-shadow: 0 28px 90px rgba(0,0,0,.6); }
+    dialog::backdrop { background: rgba(0, 8, 11, .76); backdrop-filter: blur(3px); }
+    .dialog-body { padding: 22px; }
+    .dialog-body > p { color: var(--muted); }
+    .dialog-options { display: grid; gap: 9px; margin: 18px 0; }
+    .option-card { width: 100%; padding: 14px; border: 1px solid var(--line); border-radius: 15px; background: var(--panel-2); color: var(--ink); text-align: left; cursor: pointer; }
+    .option-card strong, .option-card small { display: block; }
+    .option-card small { margin-top: 3px; color: var(--muted); }
+    .pain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .pain-grid .btn { min-height: 62px; padding: 8px; }
+    .pain-light { border-color: var(--warning); color: var(--warning); background: rgba(255, 209, 102, .08); }
+    .pain-medium { border-color: #ff9d55; color: #ffb37b; background: rgba(255, 157, 85, .1); }
+    .pain-strong { border-color: var(--danger); color: #ffaaa2; background: rgba(255, 120, 109, .12); }
+    .dialog-footer { display: flex; gap: 9px; margin-top: 16px; }
+
+    .finish-mark { display: grid; place-items: center; width: 76px; height: 76px; margin: 32px 0 22px; border-radius: 25px; background: var(--accent); color: var(--accent-ink); font-size: 2.2rem; font-weight: 950; transform: rotate(-4deg); }
+    .log-list { padding: 0; list-style: none; }
+    .log-list li { padding: 10px 0; border-top: 1px solid var(--line); color: var(--muted); }
+    .empty-log { font-style: italic; }
+    .footer-tools { margin-top: 38px; padding-top: 20px; border-top: 1px solid var(--line); }
+
+    .toast { position: fixed; left: 50%; bottom: 20px; z-index: 20; max-width: calc(100% - 32px); transform: translate(-50%, 20px); padding: 11px 16px; border-radius: 12px; background: var(--ink); color: var(--canvas); box-shadow: var(--shadow); font-weight: 750; opacity: 0; pointer-events: none; transition: .2s ease; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (min-width: 620px) {
+      .shell { padding-top: 24px; }
+      .chip-grid { grid-template-columns: repeat(3, 1fr); }
+      .panel { padding: 24px; }
+    }
+    @media (max-width: 430px) {
+      .duration-grid { grid-template-columns: repeat(3, 1fr); }
+      .choice-grid { grid-template-columns: 1fr; }
+      .summary-strip { gap: 6px; }
+      .metric { padding-inline: 5px; }
+      .training-actions { grid-template-columns: 1fr; }
+      .training-actions .btn { min-height: 48px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">FW</span><span>Formwerk</span></div>
+      <span class="local-pill">offline bereit</span>
+    </header>
+    <div id="app" aria-live="polite"></div>
+  </main>
+
+  <dialog id="modal" aria-labelledby="modal-title">
+    <div class="dialog-body" id="modal-content"></div>
+  </dialog>
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    'use strict';
+
+    const MUSCLES = [
+      ['Brust','Oberkörper'], ['Rücken','Oberkörper'], ['Schultern','Oberkörper'], ['Nacken','Oberkörper'],
+      ['Bizeps','Arme'], ['Trizeps','Arme'], ['Unterarme','Arme'], ['Bauch / Core','Rumpf'],
+      ['Gesäß','Unterkörper'], ['Quadrizeps','Unterkörper'], ['Beinbeuger','Unterkörper'], ['Waden','Unterkörper']
+    ];
+    const REGIONS = ['Schulter','Ellenbogen','Handgelenk','Nacken','Rücken','Hüfte','Knie','Sprunggelenk','Sonstiges'];
+    const LEVELS = ['Anfänger','Fortgeschritten','Erfahren'];
+    const DURATIONS = [30,45,60,75,90,105,120];
+    const WEIGHTS = {'Brust':3,'Rücken':3,'Schultern':2,'Nacken':1,'Bizeps':1.5,'Trizeps':1.5,'Unterarme':1,'Bauch / Core':2,'Gesäß':2.5,'Quadrizeps':3,'Beinbeuger':2.5,'Waden':1.5};
+
+    const EXERCISES = [
+      ex('chest-press','Brustpresse','Brust',['Trizeps','Schultern'],'Brustpresse','Anfänger',8,'3 × 8–12','90 Sek.','Sitz so einstellen, dass die Griffe auf Brusthöhe liegen. Schulterblätter zurücknehmen und kontrolliert drücken.','Schultern tief halten; Gewicht langsam zurückführen.',['db-bench','pushup','cable-fly'],['Schulter'],'Gewicht reduzieren, neutral greifen und den Bewegungsradius schmerzfrei verkürzen.'),
+      ex('db-bench','Kurzhantel-Bankdrücken','Brust',['Trizeps'],'Kurzhanteln','Fortgeschritten',9,'3 × 8–12','90 Sek.','Füße stabil aufstellen, Schulterblätter an die Bank ziehen und Hanteln kontrolliert über der Brust führen.','Handgelenke gerade halten; kein Hohlkreuz erzwingen.',['chest-press','pushup','pec-deck'],['Schulter','Handgelenk'],'Leichtere Hanteln nutzen, neutral greifen und nicht tiefer als angenehm absenken.'),
+      ex('incline-press','Schrägbankdrücken','Brust',['Schultern','Trizeps'],'Kurzhanteln','Fortgeschritten',9,'3 × 8–12','90 Sek.','Bank moderat anstellen. Hanteln kontrolliert zur oberen Brust und wieder nach oben führen.','Bank nicht zu steil stellen; Schultern nicht hochziehen.',['chest-press','cable-fly','pushup'],['Schulter'],'Bank flacher stellen, neutral greifen und Last deutlich reduzieren.'),
+      ex('pec-deck','Pec Deck','Brust',[],'Pec-Deck-Maschine','Anfänger',7,'3 × 10–15','75 Sek.','Brustbein anheben und die Polster in einem ruhigen Bogen vor dem Körper zusammenführen.','Schultern nicht nach vorn kippen.',['cable-fly','chest-press','pushup'],['Schulter'],'Bewegungsweg verkürzen und die Oberarme etwas tiefer positionieren.'),
+      ex('cable-fly','Cable Fly','Brust',[],'Kabelzug','Fortgeschritten',7,'3 × 10–15','75 Sek.','Leichte Schrittstellung einnehmen und die Hände mit leicht gebeugten Armen vor der Brust zusammenführen.','Nicht aus den Schultern nach vorn fallen.',['pec-deck','pushup','chest-press'],['Schulter'],'Züge tiefer einstellen und nur im gut kontrollierbaren Bereich arbeiten.'),
+      ex('pushup','Liegestütze','Brust',['Trizeps','Bauch / Core'],'Körpergewicht','Anfänger',6,'3 × 8–15','60 Sek.','Körper als stabile Linie absenken und den Boden aktiv wegdrücken.','Hüfte nicht absinken lassen; Ellenbogen nicht maximal abspreizen.',['chest-press','db-bench','pec-deck'],['Handgelenk','Schulter'],'Hände erhöht auf einer Bank platzieren oder Griffe für neutrale Handgelenke verwenden.'),
+
+      ex('lat-pull','Latzug','Rücken',['Bizeps'],'Latzug','Anfänger',8,'3 × 8–12','90 Sek.','Brust leicht anheben und die Stange kontrolliert Richtung obere Brust ziehen.','Nicht ins Hohlkreuz reißen oder hinter den Kopf ziehen.',['seated-row','one-arm-row','pullover'],['Schulter','Ellenbogen'],'Neutralen Parallelgriff verwenden und Zug nur bis vor das Gesicht führen.'),
+      ex('seated-row','Rudern sitzend','Rücken',['Bizeps'],'Kabelzug','Anfänger',8,'3 × 8–12','90 Sek.','Aufrecht sitzen, Schulterblätter zuerst nach hinten führen und Griff zum Bauch ziehen.','Oberkörper nicht vor und zurück schwingen.',['row-machine','one-arm-row','lat-pull'],['Rücken','Ellenbogen'],'Last reduzieren, Brust stabil halten und neutralen Griff wählen.'),
+      ex('row-machine','Rudermaschine','Rücken',['Bizeps'],'Rudermaschine','Anfänger',8,'3 × 8–12','90 Sek.','Brust am Polster halten und Ellenbogen kontrolliert nach hinten führen.','Kopf neutral halten; Schultern nicht hochziehen.',['seated-row','one-arm-row','lat-pull'],['Nacken','Ellenbogen'],'Griffhöhe anpassen, Last reduzieren und Ellenbogen näher am Körper führen.'),
+      ex('one-arm-row','Einarmiges Kurzhantelrudern','Rücken',['Bizeps'],'Kurzhantel','Fortgeschritten',9,'3 × 8–12','90 Sek.','Mit einer Hand abstützen, Rücken stabil halten und Hantel zur Hüfte ziehen.','Becken nicht aufdrehen; Schulter nicht hochziehen.',['row-machine','seated-row','lat-pull'],['Rücken'],'Auf einer Schrägbank brustgestützt rudern und weniger Gewicht verwenden.'),
+      ex('pullover','Kabel-Pullover','Rücken',[],'Kabelzug','Fortgeschritten',7,'3 × 10–15','75 Sek.','Mit langen Armen den Griff aus der Schulterbewegung zu den Oberschenkeln führen.','Rippen nicht aufstellen; Bewegung nicht aus dem Trizeps machen.',['lat-pull','row-machine','one-arm-row'],['Schulter'],'Ellenbogen stärker beugen und Bewegungsweg oberhalb des Kopfes verkürzen.'),
+
+      ex('shoulder-press','Schulterpresse Maschine','Schultern',['Trizeps'],'Schulterpresse','Anfänger',8,'3 × 8–12','90 Sek.','Rücken am Polster halten und Griffe kontrolliert über Kopf drücken.','Nicht ins Hohlkreuz drücken; Schultern nicht hochziehen.',['lateral-raise','landmine-press','cable-lateral'],['Schulter','Nacken'],'Neutralen Griff wählen und nur bis knapp über Kopfhöhe drücken.'),
+      ex('lateral-raise','Seitheben','Schultern',[],'Kurzhanteln','Anfänger',6,'3 × 12–15','60 Sek.','Leichte Hanteln seitlich bis ungefähr Schulterhöhe anheben.','Keinen Schwung nutzen; Hände nicht höher als Ellenbogen ziehen.',['cable-lateral','reverse-fly','landmine-press'],['Schulter','Nacken'],'In der Skapulaebene arbeiten und nur bis zur schmerzfreien Höhe heben.'),
+      ex('cable-lateral','Einarmiges Kabel-Seitheben','Schultern',[],'Kabelzug','Fortgeschritten',7,'3 × 12–15','60 Sek.','Seitlich zum Kabel stehen und den Arm ruhig in der Skapulaebene anheben.','Oberkörper nicht wegkippen.',['lateral-raise','reverse-fly','landmine-press'],['Schulter'],'Zug tiefer starten, Last senken und Bewegungsweg begrenzen.'),
+      ex('reverse-fly','Reverse Fly Maschine','Schultern',['Rücken'],'Reverse-Fly-Maschine','Anfänger',7,'3 × 12–15','60 Sek.','Brust am Polster halten und Arme in einem Bogen nach hinten öffnen.','Schultern nicht zu den Ohren ziehen.',['face-pull','lateral-raise','row-machine'],['Schulter','Nacken'],'Griffe tiefer fassen und Bewegung mit sehr leichter Last ausführen.'),
+      ex('landmine-press','Landmine Press','Schultern',['Trizeps'],'Langhantel','Fortgeschritten',8,'3 × 8–12','75 Sek.','Stange schräg nach vorn oben drücken und den Rumpf stabil halten.','Nicht aus dem unteren Rücken ausweichen.',['shoulder-press','lateral-raise','cable-lateral'],['Schulter','Rücken'],'Im Halbkniestand arbeiten, leichter beladen und den Endpunkt verkürzen.'),
+
+      ex('shrug-machine','Shrugs Maschine','Nacken',[],'Shrug-Maschine','Anfänger',6,'3 × 10–15','60 Sek.','Schultern gerade nach oben führen, kurz halten und kontrolliert absenken.','Schultern nicht kreisen; Kopf neutral lassen.',['db-shrug','face-pull','farmer-carry'],['Nacken'],'Last deutlich reduzieren und nur eine kleine, kontrollierte Bewegung ausführen.'),
+      ex('db-shrug','Kurzhantel-Shrugs','Nacken',['Unterarme'],'Kurzhanteln','Anfänger',6,'3 × 10–15','60 Sek.','Hanteln seitlich halten und Schultern kontrolliert nach oben ziehen.','Keine Kreisbewegung; Arme lang lassen.',['shrug-machine','farmer-carry','face-pull'],['Nacken'],'Leichter arbeiten und die Endposition nicht maximal hochziehen.'),
+
+      ex('curl-machine','Bizepscurl Maschine','Bizeps',[],'Curl-Maschine','Anfänger',6,'3 × 10–12','60 Sek.','Oberarme auf dem Polster halten und Unterarme kontrolliert beugen.','Handgelenke nicht abknicken; Gewicht nicht fallen lassen.',['db-curl','cable-curl','hammer-curl'],['Ellenbogen','Handgelenk'],'Neutralere Griffposition und geringere Last verwenden.'),
+      ex('db-curl','Kurzhantel-Curls','Bizeps',['Unterarme'],'Kurzhanteln','Anfänger',7,'3 × 10–12','60 Sek.','Aufrecht stehen und die Hanteln ohne Schwung nach oben führen.','Ellenbogen nicht nach vorn schieben.',['hammer-curl','cable-curl','curl-machine'],['Ellenbogen','Handgelenk'],'Hammergriff wählen oder abwechselnd mit leichteren Hanteln trainieren.'),
+      ex('hammer-curl','Hammer Curls','Bizeps',['Unterarme'],'Kurzhanteln','Anfänger',7,'3 × 10–12','60 Sek.','Daumen zeigen nach oben; Hanteln dicht am Körper kontrolliert beugen.','Nicht aus dem Rücken schwingen.',['db-curl','cable-curl','curl-machine'],['Ellenbogen'],'Am Kabel mit Seilgriff arbeiten und Last reduzieren.'),
+      ex('cable-curl','Kabel-Curls','Bizeps',[],'Kabelzug','Anfänger',6,'3 × 10–15','60 Sek.','Ellenbogen am Körper halten und den Griff gleichmäßig nach oben führen.','Schultern nicht nach vorn rollen.',['curl-machine','db-curl','hammer-curl'],['Ellenbogen','Handgelenk'],'Seilgriff nutzen und nur im angenehmen Bewegungsbereich beugen.'),
+
+      ex('pushdown','Trizepsdrücken','Trizeps',[],'Kabelzug','Anfänger',6,'3 × 10–15','60 Sek.','Ellenbogen am Körper fixieren und den Griff nach unten strecken.','Oberarme nicht vor und zurück bewegen.',['dip-machine','db-extension','close-pushup'],['Ellenbogen','Handgelenk'],'Seilgriff verwenden, Last senken und Endstreckung nicht erzwingen.'),
+      ex('dip-machine','Dip-Maschine','Trizeps',['Brust'],'Dip-Maschine','Anfänger',8,'3 × 8–12','75 Sek.','Aufrecht sitzen und Griffe kontrolliert nach unten drücken.','Schultern nicht nach vorn kippen.',['pushdown','close-pushup','db-extension'],['Schulter','Ellenbogen'],'Auf Kabeldrücken wechseln oder Bewegungsweg deutlich verkürzen.'),
+      ex('db-extension','Trizepsstrecken liegend','Trizeps',[],'Kurzhanteln','Fortgeschritten',8,'3 × 10–12','75 Sek.','Oberarme ruhig halten und Hanteln kontrolliert neben den Kopf absenken.','Ellenbogen nicht weit auseinanderwandern lassen.',['pushdown','dip-machine','close-pushup'],['Ellenbogen','Schulter'],'Einarmig mit leichter Last arbeiten oder auf Seil-Pushdown wechseln.'),
+      ex('close-pushup','Enge Liegestütze','Trizeps',['Brust','Bauch / Core'],'Körpergewicht','Fortgeschritten',7,'3 × 8–15','60 Sek.','Hände schulterbreit setzen und den Körper stabil absenken.','Ellenbogen kontrolliert am Körper führen.',['pushdown','dip-machine','db-extension'],['Handgelenk','Schulter'],'Hände erhöht auf einer Bank oder auf Griffen platzieren.'),
+
+      ex('wrist-curl','Handgelenk-Curls','Unterarme',[],'Kurzhanteln','Anfänger',5,'3 × 12–15','45 Sek.','Unterarme ablegen und nur die Handgelenke kontrolliert bewegen.','Nicht mit den Armen nachhelfen.',['reverse-curl','farmer-carry','cable-curl'],['Handgelenk','Ellenbogen'],'Weniger Gewicht und neutralen Griff verwenden.'),
+      ex('reverse-curl','Reverse Curls','Unterarme',['Bizeps'],'SZ-Stange','Fortgeschritten',6,'3 × 10–15','60 Sek.','Stange im Obergriff halten und ohne Schwung anheben.','Handgelenke gerade und Ellenbogen ruhig halten.',['hammer-curl','wrist-curl','farmer-carry'],['Handgelenk','Ellenbogen'],'Auf Hammer Curls mit leichteren Kurzhanteln wechseln.'),
+      ex('farmer-carry','Farmer Carry','Unterarme',['Nacken','Bauch / Core'],'Kurzhanteln','Anfänger',6,'3 × 30–45 Sek.','Schwer, aber aufrecht und kontrolliert gehen. Schulterblätter stabil halten.','Nicht zur Seite kippen; kurze saubere Schritte.',['db-shrug','wrist-curl','reverse-curl'],['Handgelenk','Rücken'],'Leichtere Last und kürzere Strecke verwenden.'),
+
+      ex('plank','Unterarmstütz','Bauch / Core',[],'Körpergewicht','Anfänger',5,'3 × 30–45 Sek.','Ellenbogen unter den Schultern, Gesäß anspannen und Körper in einer Linie halten.','Nicht ins Hohlkreuz sinken.',['dead-bug','pallof','cable-crunch'],['Schulter','Rücken'],'Auf Knien stützen oder auf Dead Bug wechseln.'),
+      ex('dead-bug','Dead Bug','Bauch / Core',[],'Körpergewicht','Anfänger',5,'3 × 8–10 / Seite','45 Sek.','Unteren Rücken sanft am Boden halten und diagonal Arm und Bein strecken.','Nur so weit strecken, wie der Rücken stabil bleibt.',['plank','pallof','cable-crunch'],['Rücken','Hüfte'],'Bewegungsradius verkürzen und nur die Beine einzeln bewegen.'),
+      ex('pallof','Pallof Press','Bauch / Core',[],'Kabelzug','Fortgeschritten',6,'3 × 10 / Seite','60 Sek.','Seitlich zum Kabel stehen und Griff ohne Rumpfdrehung nach vorn drücken.','Becken und Rippen ruhig halten.',['dead-bug','plank','cable-crunch'],['Rücken'],'Leichtere Last nutzen und näher am Kabel stehen.'),
+      ex('cable-crunch','Kabel-Crunch','Bauch / Core',[],'Kabelzug','Fortgeschritten',6,'3 × 10–15','60 Sek.','Rippen kontrolliert Richtung Becken bewegen, Hüfte weitgehend ruhig halten.','Nicht nur aus der Hüfte nach vorn kippen.',['dead-bug','plank','pallof'],['Rücken'],'Last reduzieren oder auf Dead Bug wechseln.'),
+
+      ex('hip-thrust','Hip Thrust','Gesäß',['Beinbeuger'],'Langhantel','Fortgeschritten',9,'3 × 8–12','90 Sek.','Schulterblätter an einer Bank abstützen und Hüfte bis zur stabilen Endposition strecken.','Nicht ins Hohlkreuz überstrecken.',['glute-machine','cable-pullthrough','split-squat'],['Rücken','Hüfte'],'Last reduzieren, Endposition kleiner wählen oder Maschine verwenden.'),
+      ex('glute-machine','Glute Drive Maschine','Gesäß',['Beinbeuger'],'Glute-Maschine','Anfänger',8,'3 × 8–12','90 Sek.','Becken am Polster stabilisieren und Hüfte kontrolliert strecken.','Rippen unten halten; nicht ins Hohlkreuz drücken.',['hip-thrust','cable-pullthrough','split-squat'],['Rücken','Hüfte'],'Bewegungsradius verkürzen und Last reduzieren.'),
+      ex('cable-pullthrough','Cable Pull-through','Gesäß',['Beinbeuger'],'Kabelzug','Fortgeschritten',7,'3 × 10–15','75 Sek.','Hüfte nach hinten schieben und durch Gesäßspannung wieder aufrichten.','Rücken neutral halten; nicht in die Kniebeuge gehen.',['glute-machine','hip-thrust','split-squat'],['Rücken'],'Leichtere Last, kleinere Hüftbewegung oder Glute-Maschine verwenden.'),
+
+      ex('leg-press','Beinpresse','Quadrizeps',['Gesäß'],'Beinpresse','Anfänger',10,'3 × 8–12','90 Sek.','Füße stabil platzieren, Knie kontrolliert beugen und Plattform gleichmäßig wegdrücken.','Knie nicht nach innen fallen lassen; Becken am Polster halten.',['leg-extension','goblet-squat','split-squat'],['Knie','Rücken','Hüfte'],'Füße etwas höher setzen, Bewegungsweg verkürzen und Last senken.'),
+      ex('leg-extension','Beinstrecker','Quadrizeps',[],'Beinstrecker','Anfänger',7,'3 × 10–15','75 Sek.','Kniegelenk an der Maschinenachse ausrichten und Beine kontrolliert strecken.','Gewicht nicht hochschleudern; Endposition nicht erzwingen.',['leg-press','goblet-squat','split-squat'],['Knie'],'Last reduzieren und nur im schmerzfreien mittleren Bewegungsbereich arbeiten.'),
+      ex('goblet-squat','Goblet Squat','Quadrizeps',['Gesäß','Bauch / Core'],'Kurzhantel','Anfänger',8,'3 × 8–12','90 Sek.','Hantel vor der Brust halten und kontrolliert zwischen die Beine setzen.','Fersen am Boden und Knie in Richtung der Fußspitzen halten.',['leg-press','split-squat','leg-extension'],['Knie','Rücken','Hüfte'],'Zu einer Bank absenken, Stand anpassen und leichter trainieren.'),
+      ex('split-squat','Split Squat','Quadrizeps',['Gesäß'],'Kurzhanteln','Fortgeschritten',9,'3 × 8–10 / Seite','90 Sek.','Stabiler Ausfallschritt, hinteres Knie senken und über den ganzen vorderen Fuß drücken.','Vorderes Knie nicht nach innen kippen.',['leg-press','goblet-squat','leg-extension'],['Knie','Hüfte'],'An einer Stütze festhalten und Bewegungsweg verkürzen.'),
+
+      ex('leg-curl','Beinbeuger liegend','Beinbeuger',[],'Beinbeuger-Maschine','Anfänger',7,'3 × 10–15','75 Sek.','Becken ins Polster drücken und Fersen kontrolliert Richtung Gesäß führen.','Hüfte nicht anheben; Gewicht langsam ablassen.',['seated-leg-curl','rdl','cable-pullthrough'],['Knie','Rücken'],'Last reduzieren und Beugung vor dem unangenehmen Punkt stoppen.'),
+      ex('seated-leg-curl','Beinbeuger sitzend','Beinbeuger',[],'Beinbeuger-Maschine','Anfänger',7,'3 × 10–15','75 Sek.','Oberschenkel fixieren und Unterschenkel kontrolliert nach unten ziehen.','Becken nicht vom Sitz lösen.',['leg-curl','rdl','cable-pullthrough'],['Knie'],'Polsterposition prüfen, Last reduzieren und Bewegungsweg begrenzen.'),
+      ex('rdl','Rumänisches Kreuzheben','Beinbeuger',['Gesäß','Rücken'],'Langhantel','Fortgeschritten',10,'3 × 8–12','90 Sek.','Hüfte nach hinten schieben, Stange nah am Körper und Rücken neutral halten.','Nicht in der Wirbelsäule runden; Stange nicht vom Körper wegführen.',['leg-curl','seated-leg-curl','cable-pullthrough'],['Rücken','Hüfte'],'Kurzhanteln leichter verwenden oder auf die Beinbeuger-Maschine wechseln.'),
+
+      ex('calf-standing','Wadenheben stehend','Waden',[],'Wadenmaschine','Anfänger',6,'3 × 10–15','60 Sek.','Fersen kontrolliert absenken und über den Fußballen maximal angenehm anheben.','Nicht federn; Knie stabil halten.',['calf-seated','calf-press','single-calf'],['Sprunggelenk'],'Bewegungsweg verkürzen und mit leichterer Last arbeiten.'),
+      ex('calf-seated','Wadenheben sitzend','Waden',[],'Wadenmaschine','Anfänger',6,'3 × 12–15','60 Sek.','Ballen aufstellen, Fersen langsam absenken und kontrolliert anheben.','Nicht aus der Bewegung federn.',['calf-standing','calf-press','single-calf'],['Sprunggelenk','Knie'],'Polsterdruck und Bewegungsweg reduzieren.'),
+      ex('calf-press','Wadenheben an Beinpresse','Waden',[],'Beinpresse','Anfänger',6,'3 × 12–15','60 Sek.','Nur die Fußballen aufsetzen und die Plattform über das Sprunggelenk bewegen.','Knie nicht durchdrücken; Füße sicher positionieren.',['calf-standing','calf-seated','single-calf'],['Sprunggelenk','Knie'],'Mit beiden Füßen und kleinerem Bewegungsweg arbeiten.'),
+      ex('single-calf','Einbeiniges Wadenheben','Waden',[],'Körpergewicht','Fortgeschritten',6,'3 × 10–15 / Seite','60 Sek.','Leicht abstützen und Ferse kontrolliert heben und senken.','Nicht seitlich ausweichen.',['calf-standing','calf-seated','calf-press'],['Sprunggelenk'],'Beidbeinig am Boden ohne Stufe arbeiten.'),
+
+      ex('face-pull','Face Pull','Nacken',['Schultern','Rücken'],'Kabelzug','Fortgeschritten',6,'3 × 12–15','60 Sek.','Seil Richtung Augen ziehen und Hände kontrolliert auseinanderführen.','Rippen unten und Schultern weg von den Ohren halten.',['reverse-fly','row-machine','db-shrug'],['Schulter','Nacken'],'Zug tiefer einstellen und Last deutlich reduzieren.')
+    ];
+
+    const MOBILITY = [
+      mob('Schulterkreisen',['Brust','Schultern','Nacken','Rücken'],'Arme locker hängen lassen und die Schultern langsam vorwärts und rückwärts kreisen.'),
+      mob('Arm Swings',['Brust','Schultern','Bizeps','Trizeps'],'Arme kontrolliert vor dem Körper kreuzen und weit öffnen. Ohne Schwung in den Schmerzbereich.'),
+      mob('Brustwirbelsäulen-Rotation',['Brust','Rücken','Schultern'],'Im Vierfüßlerstand eine Hand zum Nacken nehmen und den Oberkörper ruhig aufdrehen.'),
+      mob('Wall Slides',['Schultern','Rücken','Nacken'],'Rücken an die Wand, Arme langsam nach oben und unten führen. Rippen unten halten.'),
+      mob('Handgelenk-Mobilisation',['Unterarme','Bizeps','Trizeps'],'Handflächen sanft in verschiedene Richtungen bewegen, ohne starken Druck aufzubauen.'),
+      mob('Cat–Cow',['Rücken','Bauch / Core'],'Wirbelsäule im Vierfüßlerstand langsam runden und strecken. Ruhig weiteratmen.'),
+      mob('Dead-Bug Aktivierung',['Bauch / Core','Rücken'],'Diagonal Arm und Bein langsam strecken, während der untere Rücken stabil bleibt.'),
+      mob('90/90 Hüftwechsel',['Gesäß','Quadrizeps','Beinbeuger'],'Im Sitz beide Knie kontrolliert von einer Seite zur anderen führen.'),
+      mob('Ausfallschritt mit Rotation',['Gesäß','Quadrizeps','Beinbeuger'],'In einen langen Ausfallschritt gehen und den Oberkörper zur vorderen Seite aufdrehen.'),
+      mob('Beinschwünge',['Quadrizeps','Beinbeuger','Gesäß'],'Mit Halt ein Bein kontrolliert vor und zurück pendeln. Klein beginnen.'),
+      mob('Sprunggelenk-Wippen',['Waden','Quadrizeps'],'Knie über die Fußspitze nach vorn führen, während die Ferse am Boden bleibt.'),
+      mob('Kniebeuge mit Halt',['Quadrizeps','Gesäß','Waden'],'In eine angenehme Kniebeuge sinken, kurz halten und kontrolliert aufrichten.')
+    ];
+
+    function ex(id,name,muscle,secondary,equipment,level,minutes,sets,pause,how,watch,alternatives,risk,adjustment) {
+      return {id,name,muscle,secondary,equipment,level,minutes,sets,pause,how,watch,alternatives,risk,adjustment};
+    }
+    function mob(name,muscles,how) { return {id:'mob-'+name.toLowerCase().replace(/[^a-z0-9]+/g,'-'),name,muscles,how,minutes:2}; }
+
+    const app = document.querySelector('#app');
+    const modal = document.querySelector('#modal');
+    const modalContent = document.querySelector('#modal-content');
+    const state = {
+      screen: 'setup', muscles: [], level: 'Anfänger', duration: 60, hasIssues: false,
+      regions: [], acute: false, notes: '', plan: null, phase: 'mobility', index: 0,
+      completed: [], sessionLog: [], pain: loadJSON('formwerk-pain', {})
+    };
+
+    function loadJSON(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
+    function savePain() { localStorage.setItem('formwerk-pain', JSON.stringify(state.pain)); }
+    function escapeHtml(value='') { const div=document.createElement('div'); div.textContent=value; return div.innerHTML; }
+    function iconCode(name) { return name.split(/\s|-/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase(); }
+
+    function setupView() {
+      return `<section class="screen">
+        <p class="eyebrow">Offline-Trainingsplaner</p>
+        <h1>Ein Training, das heute passt.</h1>
+        <p class="lede">Wähle Fokus, Zeit und Level. Formwerk stellt dir einen klaren Studioplan inklusive 10 Minuten Mobility zusammen.</p>
+        <div class="panel">
+          <div class="section-label"><h3>Was möchtest du trainieren?</h3><span>Mehrfachauswahl</span></div>
+          <div class="chip-grid">${MUSCLES.map(([m])=>`<button class="chip muscle" aria-pressed="${state.muscles.includes(m)}" data-value="${m}">${m}</button>`).join('')}</div>
+          <div class="section-label"><h3>Dein Trainingslevel</h3></div>
+          <div class="choice-grid">${LEVELS.map(l=>`<button class="choice level" aria-pressed="${state.level===l}" data-value="${l}">${l}</button>`).join('')}</div>
+          <div class="section-label"><h3>Wie viel Zeit hast du?</h3></div>
+          <div class="duration-grid">${DURATIONS.map(d=>`<button class="choice duration" aria-pressed="${state.duration===d}" data-value="${d}">${d} Min.</button>`).join('')}</div>
+          <p class="tiny-note">10 Minuten Mobility sind bereits enthalten.</p>
+          <div class="section-label"><h3>Beschwerden berücksichtigen?</h3></div>
+          <div class="toggle-row">
+            <button class="choice issue" aria-pressed="${!state.hasIssues}" data-value="no">Nein</button>
+            <button class="choice issue" aria-pressed="${state.hasIssues}" data-value="yes">Ja</button>
+          </div>
+          <div class="injury-fields" ${state.hasIssues?'':'hidden'}>
+            <label class="field">Betroffene Regionen</label>
+            <div class="region-grid">${REGIONS.map(r=>`<button class="chip region" aria-pressed="${state.regions.includes(r)}" data-value="${r}">${r}</button>`).join('')}</div>
+            <label class="field">Ist die Verletzung akut?</label>
+            <div class="toggle-row">
+              <button class="choice acute" aria-pressed="${!state.acute}" data-value="no">Nein</button>
+              <button class="choice acute" aria-pressed="${state.acute}" data-value="yes">Ja</button>
+            </div>
+            <label class="field">Optionaler Hinweis
+              <textarea id="notes" placeholder="z. B. rechte Schulter empfindlich bei Druckbewegungen">${escapeHtml(state.notes)}</textarea>
+            </label>
+            <div class="alert" ${state.acute?'':'hidden'}><strong>Kein normaler Trainingsplan bei akuter Verletzung.</strong><br>Bitte kläre zuerst medizinisch oder physiotherapeutisch, welche Belastung aktuell geeignet ist.</div>
+          </div>
+          <div class="privacy-note"><span>◉</span><span>Deine Angaben und Schmerzmeldungen bleiben lokal in diesem Browser.</span></div>
+          <div class="actions"><button class="btn btn-primary" id="generate" ${!state.muscles.length || state.acute?'disabled':''}>Training erstellen</button></div>
+        </div>
+        <div class="footer-tools"><button class="btn btn-ghost" id="reset-pain">Gespeicherte Beschwerden zurücksetzen</button></div>
+      </section>`;
+    }
+
+    function generatePlan() {
+      const strengthMinutes = state.duration - 10;
+      const levelCount = state.level === 'Anfänger' ? 4 : state.level === 'Fortgeschritten' ? 5 : 6;
+      const timeCount = Math.max(2, Math.floor(strengthMinutes / 9));
+      const targetCount = Math.min(levelCount + Math.floor((strengthMinutes - 35) / 30), timeCount, 9);
+      const slots = distributeSlots(state.muscles, Math.max(2,targetCount));
+      const chosen = [];
+      slots.forEach(muscle => {
+        const candidates = EXERCISES.filter(e => e.muscle === muscle && !chosen.some(c=>c.id===e.id));
+        candidates.sort((a,b)=>scoreExercise(b)-scoreExercise(a));
+        if(candidates[0]) chosen.push(candidates[0]);
+      });
+      while(chosen.length < Math.max(2,targetCount)) {
+        const candidates = EXERCISES.filter(e => state.muscles.includes(e.muscle) && !chosen.some(c=>c.id===e.id)).sort((a,b)=>scoreExercise(b)-scoreExercise(a));
+        if(!candidates.length) break;
+        chosen.push(candidates[0]);
+      }
+      const mobility = chooseMobility(state.muscles);
+      state.plan = { mobility, strength: chosen, strengthMinutes };
+      state.screen = 'preview';
+      state.completed = []; state.sessionLog = []; state.index = 0; state.phase = 'mobility';
+      window.scrollTo(0,0); render();
+    }
+
+    function distributeSlots(muscles, count) {
+      const result=[]; const tally={}; muscles.forEach(m=>tally[m]=0);
+      for(let i=0;i<count;i++) {
+        const next=[...muscles].sort((a,b)=>((tally[a]+1)/WEIGHTS[a])-((tally[b]+1)/WEIGHTS[b]))[0];
+        result.push(next); tally[next]++;
+      }
+      return result;
+    }
+    function scoreExercise(e) {
+      let s = Math.random()*2;
+      if(state.level==='Anfänger' && e.level==='Anfänger') s+=4;
+      if(state.level!=='Anfänger' && e.level==='Fortgeschritten') s+=2;
+      if(e.risk.some(r=>state.regions.includes(r))) s-=3;
+      const p=state.pain[e.id]; if(p) s -= (p.light||0) + (p.medium||0)*3 + (p.strong||0)*20;
+      return s;
+    }
+    function chooseMobility(muscles) {
+      return [...MOBILITY].map(m=>({m,score:m.muscles.filter(x=>muscles.includes(x)).length+Math.random()*.2})).sort((a,b)=>b.score-a.score).slice(0,5).map(x=>x.m);
+    }
+
+    function previewView() {
+      const p=state.plan;
+      return `<section class="screen">
+        <button class="btn btn-ghost back" data-nav="setup">← Einstellungen</button>
+        <p class="eyebrow">Dein Trainingsplan</p><h2>Bereit für dein Workout?</h2>
+        <p class="lede">${state.muscles.join(' · ')}</p>
+        <div class="summary-strip">
+          <div class="metric"><strong>${state.duration}</strong><span>Minuten gesamt</span></div>
+          <div class="metric"><strong>10</strong><span>Min. Mobility</span></div>
+          <div class="metric"><strong>${p.strength.length}</strong><span>Kraftübungen</span></div>
+        </div>
+        <div class="plan-block"><div class="plan-head"><h3>Mobility</h3><span class="tag">10 Min.</span></div>
+          <ol class="plan-list">${p.mobility.map((e,i)=>planItem(e,i,`${e.minutes} Min.`)).join('')}</ol></div>
+        <div class="plan-block"><div class="plan-head"><h3>Krafttraining</h3><span class="tag">ca. ${p.strengthMinutes} Min.</span></div>
+          <ol class="plan-list">${p.strength.map((e,i)=>planItem(e,i,e.sets)).join('')}</ol></div>
+        <div class="actions"><button class="btn btn-secondary" id="regenerate">Neu mischen</button><button class="btn btn-primary" id="start">Training starten</button></div>
+      </section>`;
+    }
+    function planItem(e,i,meta) { return `<li><span class="step-no">${i+1}</span><div><strong>${e.name}</strong><small>${e.equipment||e.muscles.join(' · ')}</small></div><small>${meta}</small></li>`; }
+
+    function trainingView() {
+      const list=state.phase==='mobility'?state.plan.mobility:state.plan.strength;
+      const e=list[state.index]; const total=state.plan.mobility.length+state.plan.strength.length;
+      const absolute=state.phase==='mobility'?state.index:state.plan.mobility.length+state.index;
+      const percent=Math.round((absolute/total)*100);
+      const isMob=state.phase==='mobility';
+      return `<section class="screen">
+        <div class="session-head"><div class="session-row"><strong>${isMob?'Mobility':'Krafttraining'}</strong><span>${absolute+1} von ${total}</span></div><div class="progress-track"><div class="progress-fill" style="width:${percent}%"></div></div></div>
+        <div class="exercise-visual"><span class="visual-code">${iconCode(e.name)}</span><span class="visual-label">${isMob?'Mobilisieren · 2 Minuten':e.equipment}</span></div>
+        <p class="eyebrow">${isMob?'Beweglich starten':e.muscle}</p><h2>${e.name}</h2>
+        ${isMob?mobilityDetails(e):strengthDetails(e)}
+        ${isMob?'':`<div class="training-actions"><button class="btn btn-secondary" data-action="equipment">Gerät nicht verfügbar</button><button class="btn btn-secondary" data-action="swap">Übung austauschen</button><button class="btn btn-danger" data-action="pain">Schmerzen melden</button></div>`}
+        <button class="btn btn-primary done-btn" id="complete">${isMob?(state.index===list.length-1?'Krafttraining starten':'Nächste Mobility-Übung'):(state.index===list.length-1?'Training abschließen':'Übung abgeschlossen')}</button>
+        <button class="btn btn-ghost done-btn" id="quit">Training vorzeitig beenden</button>
+      </section>`;
+    }
+    function mobilityDetails(e) { return `<div class="prescription"><div><span>Dauer</span><strong>2 Minuten</strong></div><div><span>Intensität</span><strong>Locker</strong></div></div><div class="panel instruction"><h3>Ausführung</h3><p>${e.how}</p></div>`; }
+    function strengthDetails(e) { return `<p class="muscles">${[e.muscle,...e.secondary].join(' · ')}</p><div class="prescription"><div><span>Sätze & Wiederholungen</span><strong>${e.sets}</strong></div><div><span>Pause</span><strong>${e.pause}</strong></div></div><div class="panel"><div class="instruction"><h3>Ausführung</h3><p>${e.how}</p></div><div class="instruction"><h3>Darauf achten</h3><p>${e.watch}</p></div></div>`; }
+
+    function finishView() {
+      return `<section class="screen"><div class="finish-mark">✓</div><p class="eyebrow">Training abgeschlossen</p><h1>Stark gemacht.</h1><p class="lede">Dein Training wurde vollständig auf diesem Gerät verarbeitet.</p>
+        <div class="summary-strip"><div class="metric"><strong>${state.duration}</strong><span>Minuten geplant</span></div><div class="metric"><strong>${state.completed.filter(x=>x.type==='strength').length}</strong><span>Kraftübungen</span></div><div class="metric"><strong>${state.sessionLog.length}</strong><span>Anpassungen</span></div></div>
+        <div class="plan-block"><div class="plan-head"><h3>Heute angepasst</h3></div><ul class="log-list">${state.sessionLog.length?state.sessionLog.map(x=>`<li>${escapeHtml(x)}</li>`).join(''):'<li class="empty-log">Keine Anpassungen oder Beschwerden gemeldet.</li>'}</ul></div>
+        <div class="actions"><button class="btn btn-primary" id="new-workout">Neues Training erstellen</button></div></section>`;
+    }
+
+    function render() {
+      app.innerHTML = state.screen==='setup'?setupView():state.screen==='preview'?previewView():state.screen==='training'?trainingView():finishView();
+      bind();
+    }
+    function bind() {
+      document.querySelectorAll('.muscle').forEach(b=>b.onclick=()=>toggleList(state.muscles,b.dataset.value));
+      document.querySelectorAll('.region').forEach(b=>b.onclick=()=>toggleList(state.regions,b.dataset.value));
+      document.querySelectorAll('.level').forEach(b=>b.onclick=()=>{state.level=b.dataset.value;render();});
+      document.querySelectorAll('.duration').forEach(b=>b.onclick=()=>{state.duration=+b.dataset.value;render();});
+      document.querySelectorAll('.issue').forEach(b=>b.onclick=()=>{state.hasIssues=b.dataset.value==='yes'; if(!state.hasIssues){state.acute=false;state.regions=[];} render();});
+      document.querySelectorAll('.acute').forEach(b=>b.onclick=()=>{state.notes=document.querySelector('#notes')?.value||state.notes;state.acute=b.dataset.value==='yes';render();});
+      const notes=document.querySelector('#notes'); if(notes) notes.oninput=()=>state.notes=notes.value;
+      on('#generate','click',generatePlan); on('#regenerate','click',generatePlan);
+      on('#start','click',()=>{state.screen='training';state.phase='mobility';state.index=0;window.scrollTo(0,0);render();});
+      on('#complete','click',completeCurrent); on('#quit','click',()=>{if(confirm('Training wirklich vorzeitig beenden?')){state.screen='finish';render();}});
+      on('#new-workout','click',()=>{state.screen='setup';state.plan=null;window.scrollTo(0,0);render();});
+      on('#reset-pain','click',()=>{if(confirm('Alle lokal gespeicherten Schmerzmeldungen zurücksetzen?')){state.pain={};savePain();toast('Beschwerden zurückgesetzt');}});
+      document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{state.screen=b.dataset.nav;window.scrollTo(0,0);render();});
+      document.querySelectorAll('[data-action]').forEach(b=>b.onclick=()=>openAction(b.dataset.action));
+    }
+    function on(selector,event,fn){const e=document.querySelector(selector);if(e)e.addEventListener(event,fn);}
+    function toggleList(list,value){const i=list.indexOf(value);i>=0?list.splice(i,1):list.push(value);render();}
+    function completeCurrent(){
+      const list=state.phase==='mobility'?state.plan.mobility:state.plan.strength;
+      state.completed.push({type:state.phase,id:list[state.index].id});
+      if(state.index<list.length-1){state.index++;}
+      else if(state.phase==='mobility'){state.phase='strength';state.index=0;toast('Mobility geschafft – jetzt zum Krafttraining');}
+      else {state.screen='finish';}
+      window.scrollTo(0,0);render();
+    }
+
+    function currentExercise(){return state.plan.strength[state.index];}
+    function findAlternatives(e){return e.alternatives.map(id=>EXERCISES.find(x=>x.id===id)).filter(Boolean).filter(x=>!state.plan.strength.some(p=>p.id===x.id));}
+    function openAction(action){
+      if(action==='pain') return openPain();
+      const e=currentExercise(); const alts=findAlternatives(e);
+      modalContent.innerHTML=`<h2 id="modal-title">${action==='equipment'?'Anderes Equipment':'Übung austauschen'}</h2><p>${action==='equipment'?'Wähle eine passende Alternative mit anderem Equipment.':'Wähle eine andere Übung für denselben Schwerpunkt.'}</p><div class="dialog-options">${alts.length?alts.slice(0,3).map(a=>`<button class="option-card" data-alt="${a.id}"><strong>${a.name}</strong><small>${a.equipment} · ${a.sets}</small></button>`).join(''):'<p>Für diesen Plan ist keine weitere passende Alternative frei.</p>'}</div><button class="btn btn-secondary" id="close-modal">Abbrechen</button>`;
+      modal.showModal();
+      modalContent.querySelectorAll('[data-alt]').forEach(b=>b.onclick=()=>replaceExercise(b.dataset.alt, action==='equipment'?'Gerät nicht verfügbar':'Übung ausgetauscht'));
+      modalContent.querySelector('#close-modal').onclick=()=>modal.close();
+    }
+    function replaceExercise(id,reason){
+      const old=currentExercise(); const next=EXERCISES.find(e=>e.id===id); if(!next)return;
+      state.plan.strength[state.index]=next; state.sessionLog.push(`${old.name} → ${next.name} (${reason})`);
+      modal.close();render();toast(`${next.name} eingesetzt`);
+    }
+    function openPain(){
+      const e=currentExercise();
+      modalContent.innerHTML=`<h2 id="modal-title">Wie stark sind die Schmerzen?</h2><p>Bewerte nur die aktuelle Übung. Bei starken oder ungewöhnlichen Schmerzen solltest du den betroffenen Bereich nicht weiter trainieren.</p><div class="pain-grid"><button class="btn pain-light" data-pain="light">Leicht</button><button class="btn pain-medium" data-pain="medium">Mittel</button><button class="btn pain-strong" data-pain="strong">Stark</button></div><button class="btn btn-ghost done-btn" id="close-modal">Abbrechen</button>`;
+      modal.showModal();
+      modalContent.querySelectorAll('[data-pain]').forEach(b=>b.onclick=()=>handlePain(b.dataset.pain));
+      modalContent.querySelector('#close-modal').onclick=()=>modal.close();
+    }
+    function handlePain(level){
+      const e=currentExercise(); state.pain[e.id]=state.pain[e.id]||{light:0,medium:0,strong:0}; state.pain[e.id][level]++; savePain();
+      const label={light:'leichte',medium:'mittlere',strong:'starke'}[level]; state.sessionLog.push(`${e.name}: ${label} Schmerzen gemeldet`);
+      if(level==='strong') return showReplacementAdvice('Übung beenden','Diese Übung wird beendet. Wähle eine andere Bewegung – oder beende das Training für den betroffenen Bereich.');
+      const intro=level==='light'?'Probiere zuerst diese Anpassung:':'Führe die Übung nicht unverändert fort:';
+      modalContent.innerHTML=`<h2 id="modal-title">Ausführung anpassen</h2><p>${intro}</p><div class="subpanel"><strong>${e.adjustment}</strong></div><p class="tiny-note">Trainiere nicht in den Schmerz hinein. Wenn die Anpassung nicht hilft, ersetze die Übung.</p><div class="dialog-footer"><button class="btn btn-secondary" id="try-adjust">Anpassung probieren</button><button class="btn btn-danger" id="replace-after-pain">Übung ersetzen</button></div>`;
+      modalContent.querySelector('#try-adjust').onclick=()=>{state.sessionLog.push(`${e.name}: Ausführung angepasst`);modal.close();toast('Anpassung notiert');};
+      modalContent.querySelector('#replace-after-pain').onclick=()=>showReplacementAdvice('Schonendere Alternative','Wähle eine andere Übung für denselben Trainingsschwerpunkt.');
+    }
+    function showReplacementAdvice(title,text){
+      const e=currentExercise(); const alts=findAlternatives(e);
+      modalContent.innerHTML=`<h2 id="modal-title">${title}</h2><p>${text}</p><div class="dialog-options">${alts.slice(0,3).map(a=>`<button class="option-card" data-alt="${a.id}"><strong>${a.name}</strong><small>${a.equipment} · ${a.sets}</small></button>`).join('')||'<p>Keine weitere passende Alternative verfügbar. Lasse die Übung heute aus.</p>'}</div><button class="btn btn-secondary" id="skip-exercise">Übung auslassen</button>`;
+      modalContent.querySelectorAll('[data-alt]').forEach(b=>b.onclick=()=>replaceExercise(b.dataset.alt,'nach Schmerzmeldung'));
+      modalContent.querySelector('#skip-exercise').onclick=()=>{state.sessionLog.push(`${e.name}: ausgelassen`);modal.close();completeCurrent();};
+    }
+    function toast(message){const t=document.querySelector('#toast');t.textContent=message;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+    modal.addEventListener('click',e=>{if(e.target===modal)modal.close();});
+    render();
+  </script>
+</body>
+</html>
